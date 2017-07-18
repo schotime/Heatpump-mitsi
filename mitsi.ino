@@ -3,18 +3,19 @@
 
 #include <MySensors.h>
 #include <HeatPump.h>
+#include <MemoryFree.h>
  
 #define CHILD_ID_HVAC 1
-#define UNIT_ON "ON"
-#define UNIT_OFF "OFF"
+#define SEND_DELAY 500
+#define SEND_INTERVAL 60000L
 
 MyMessage msgHVACStatus(CHILD_ID_HVAC, V_STATUS);
-MyMessage msgHVACFlowState(CHILD_ID_HVAC, V_VAR1);
+MyMessage msgHVACFlowState(CHILD_ID_HVAC, V_HVAC_FLOW_STATE);
 MyMessage msgHVACSpeed(CHILD_ID_HVAC, V_VAR2);
 MyMessage msgHVACTemp(CHILD_ID_HVAC, V_TEMP);
 MyMessage msgHVACSetPointC(CHILD_ID_HVAC, V_HVAC_SETPOINT_COOL);
 MyMessage msgHVACVane(CHILD_ID_HVAC, V_VAR3);
-//MyMessage msgPong(CHILD_ID_HVAC, V_VAR4);
+MyMessage msgMemory(CHILD_ID_HVAC, V_VAR4);
  
 HeatPump hp;
 heatpumpSettings newSettings;
@@ -22,29 +23,37 @@ long lastSend = 0;
 boolean sendUpdate = false;
 
 void setup() {
-  sleep(500);
+  wait(SEND_DELAY);
   
   hp.connect(&Serial);
- //while(!hp.connect(&Serial)) { }
-  
   hp.setSettingsChangedCallback(hpSettingsChanged);
   hp.setRoomTempChangedCallback(hpRoomTempChanged);
 }
 
 void presentation() {
-  sendSketchInfo("Mitsi", "2.0");
+  sendSketchInfo("Mitsi", "3.0");
   present(CHILD_ID_HVAC, S_HVAC, "Unit");
 }
 
 void hpSettingsChanged() {
+  
   send(msgHVACStatus.set(hp.getPowerSettingBool()));
-  send(msgHVACSpeed.set(hp.getFanSpeed().c_str()));
-  send(msgHVACFlowState.set(hp.getModeSetting().c_str()));
-  send(msgHVACSetPointC.set(hp.getTemperature()));
-  send(msgHVACVane.set(hp.getVaneSetting().c_str()));
+  send(msgHVACSpeed.set(hp.getFanSpeed()));
+  send(msgHVACFlowState.set(hp.getModeSetting()));
+
+  wait(SEND_DELAY);
+    
+  send(msgHVACSetPointC.set(hp.getTemperature(), 1));
+  send(msgHVACVane.set(hp.getVaneSetting()));
+
   if (hp.getRoomTemperature() > 0) {
     send(msgHVACTemp.set(hp.getRoomTemperature(), 1));
   }
+
+  wait(SEND_DELAY);
+  
+  send(msgMemory.set(freeMemory()));
+  
   lastSend = millis();
 }
 
@@ -60,45 +69,40 @@ void loop() {
   }
   else {
     hp.sync();
-    if (millis() > (lastSend + 30000L)) {
+    if (millis() > (lastSend + SEND_INTERVAL)) {
       hpSettingsChanged();
     }
   }
-  
-  sleep(1000);
 }
 
 void receive(const MyMessage &message) {
-  String recvData = message.data;
-  recvData.trim();
-
   newSettings = hp.getSettings();
-  
+
   switch (message.type) {
     case V_STATUS:
-      newSettings.power = message.getBool() ? UNIT_ON : UNIT_OFF;
+      newSettings.power = message.getBool() ? hp.POWER_MAP[1] : hp.POWER_MAP[0];
       break;
       
     case V_HVAC_SETPOINT_COOL:
-      newSettings.temperature = recvData.toFloat();
+      newSettings.temperature = message.getFloat();
       break;
 
-    case V_VAR1:
-      if (recvData.equalsIgnoreCase(UNIT_OFF)) {
-        newSettings.power = UNIT_OFF;
+    case V_HVAC_FLOW_STATE:
+      if (strcmp(message.getString(), hp.POWER_MAP[0]) == 0) {
+        newSettings.power = hp.POWER_MAP[0];
       } 
       else {
-        newSettings.power = UNIT_ON;
-        newSettings.mode = recvData;
+        newSettings.power = hp.POWER_MAP[1];
+        newSettings.mode = hp.MODE_MAP[hp.lookupByteMapIndex(hp.MODE_MAP, 5, message.getString())];
       }
       break;
 
     case V_VAR2:
-      newSettings.fan = recvData;
+      newSettings.fan = hp.FAN_MAP[hp.lookupByteMapIndex(hp.FAN_MAP, 6, message.getString())];
       break;
         
     case V_VAR3:
-      newSettings.vane = recvData;
+      newSettings.vane = hp.VANE_MAP[hp.lookupByteMapIndex(hp.VANE_MAP, 7, message.getString())];
       break;
   }
 

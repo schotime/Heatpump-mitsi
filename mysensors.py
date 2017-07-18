@@ -29,7 +29,7 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
         pres = gateway.const.Presentation
         set_req = gateway.const.SetReq
         map_sv_types = {
-            pres.S_HVAC: [set_req.V_VAR1],
+            pres.S_HVAC: [set_req.V_HVAC_FLOW_STATE],
         }
         devices = {}
         gateway.platform_callbacks.append(mysensors.pf_callback_factory(
@@ -53,7 +53,10 @@ class MyMitsi(mysensors.MySensorsDeviceEntity, ClimateDevice):
     @property
     def current_temperature(self):
         """Return the current temperature."""
-        return float(self._values.get(self.gateway.const.SetReq.V_TEMP))
+        value = self._values.get(self.gateway.const.SetReq.V_TEMP)
+        if value is not None:
+            value = float(value)
+        return value
 
     @property
     def target_temperature(self):
@@ -65,27 +68,29 @@ class MyMitsi(mysensors.MySensorsDeviceEntity, ClimateDevice):
         temp = self._values.get(set_req.V_HVAC_SETPOINT_COOL)
         if temp is None:
             temp = self._values.get(set_req.V_HVAC_SETPOINT_HEAT)
-        return float(temp)
+        if temp is not None:
+            temp = float(temp)
+        return temp
 
     @property
     def target_temperature_high(self):
         """Return the highbound target temperature we try to reach."""
         set_req = self.gateway.const.SetReq
         if set_req.V_HVAC_SETPOINT_HEAT in self._values:
-            return self._values.get(set_req.V_HVAC_SETPOINT_COOL)
+            return float(self._values.get(set_req.V_HVAC_SETPOINT_COOL))
 
     @property
     def target_temperature_low(self):
         """Return the lowbound target temperature we try to reach."""
         set_req = self.gateway.const.SetReq
         if set_req.V_HVAC_SETPOINT_COOL in self._values:
-            return self._values.get(set_req.V_HVAC_SETPOINT_HEAT)
+            return float(self._values.get(set_req.V_HVAC_SETPOINT_HEAT))
 
     @property
     def current_operation(self):
         """Return current operation ie. heat, cool, idle."""
         if self._values.get(self.gateway.const.SetReq.V_STATUS) == "1":
-            return self._values.get(self.gateway.const.SetReq.V_VAR1)
+            return self._values.get(self.gateway.const.SetReq.V_HVAC_FLOW_STATE)
         return "OFF"
 
     @property
@@ -161,7 +166,6 @@ class MyMitsi(mysensors.MySensorsDeviceEntity, ClimateDevice):
                                      set_req.V_VAR1,
                                      operation_mode)
 
-        print(self.gateway.optimistic)
         if self.gateway.optimistic:
             # optimistically assume that switch has changed state
             self._values[set_req.V_STATUS] = "1" if operation_mode != "OFF" else "0"
