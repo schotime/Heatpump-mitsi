@@ -163,13 +163,13 @@ class MyMitsi(mysensors.MySensorsDeviceEntity, ClimateDevice):
         """Set new operation mode."""
         set_req = self.gateway.const.SetReq
         self.gateway.set_child_value(self.node_id, self.child_id,
-                                     set_req.V_VAR1,
+                                     set_req.V_HVAC_FLOW_STATE,
                                      operation_mode)
 
         if self.gateway.optimistic:
             # optimistically assume that switch has changed state
             self._values[set_req.V_STATUS] = "1" if operation_mode != "OFF" else "0"
-            self._values[set_req.V_VAR1] = operation_mode            
+            self._values[set_req.V_HVAC_FLOW_STATE] = operation_mode            
             self.schedule_update_ha_state()
 
     def set_swing_mode(self, swing_mode):
