@@ -25,7 +25,7 @@ boolean sendUpdate = false;
 
 void setup() {
   wait(500);
-  
+
   hp.connect(&Serial);
   hp.setSettingsChangedCallback(hpSettingsChanged);
   hp.setRoomTempChangedCallback(hpRoomTempChanged);
@@ -34,7 +34,7 @@ void setup() {
 }
 
 void presentation() {
-  sendSketchInfo("Mitsi", "3.3");
+  sendSketchInfo("Mitsi", "3.4");
   present(CHILD_ID_HVAC, S_HVAC, "Unit");
 }
 
@@ -81,7 +81,7 @@ void receive(const MyMessage &message) {
 
   switch (message.type) {
     case V_STATUS:
-      newSettings.power = message.getBool() ? hp.POWER_MAP[1] : hp.POWER_MAP[0];
+      newSettings.power = message.getBool() ? HeatPump::POWER_MAP[1] : HeatPump::POWER_MAP[0];
       break;
       
     case V_HVAC_SETPOINT_COOL:
@@ -89,21 +89,21 @@ void receive(const MyMessage &message) {
       break;
 
     case V_HVAC_FLOW_STATE:
-      if (strcmp(message.getString(), hp.POWER_MAP[0]) == 0) {
-        newSettings.power = hp.POWER_MAP[0];
+      if (strcmp(message.getString(), HeatPump::POWER_MAP[0]) == 0) {
+        newSettings.power = HeatPump::POWER_MAP[0];
       } 
       else {
-        newSettings.power = hp.POWER_MAP[1];
-        newSettings.mode = hp.MODE_MAP[hp.lookupByteMapIndex(hp.MODE_MAP, 5, message.getString())];
+        newSettings.power = HeatPump::POWER_MAP[1];
+        newSettings.mode = HeatPump::MODE_MAP[HeatPump::lookupByteMapIndex(HeatPump::MODE_MAP, 5, message.getString())];
       }
       break;
 
     case V_VAR2:
-      newSettings.fan = hp.FAN_MAP[hp.lookupByteMapIndex(hp.FAN_MAP, 6, message.getString())];
+      newSettings.fan = HeatPump::FAN_MAP[HeatPump::lookupByteMapIndex(HeatPump::FAN_MAP, 6, message.getString())];
       break;
         
     case V_VAR3:
-      newSettings.vane = hp.VANE_MAP[hp.lookupByteMapIndex(hp.VANE_MAP, 7, message.getString())];
+      newSettings.vane = HeatPump::VANE_MAP[HeatPump::lookupByteMapIndex(HeatPump::VANE_MAP, 7, message.getString())];
       break;
 
     case V_VAR4:
