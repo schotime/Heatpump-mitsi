@@ -34,7 +34,7 @@ void setup() {
 }
 
 void presentation() {
-  sendSketchInfo("Mitsi", "3.4");
+  sendSketchInfo("Mitsi", "3.41");
   present(CHILD_ID_HVAC, S_HVAC, "Unit");
 }
 
@@ -70,6 +70,9 @@ void loop() {
   }
   else {
     hp.sync();
+    if (sendUpdate == false) {
+      newSettings = hp.getSettings();
+    }
     if (millis() > (lastSend + (random(RAND_MIN, RAND_MAX)))) {
       hpSettingsChanged();
     }
@@ -77,8 +80,6 @@ void loop() {
 }
 
 void receive(const MyMessage &message) {
-  newSettings = hp.getSettings();
-
   switch (message.type) {
     case V_STATUS:
       newSettings.power = message.getBool() ? HeatPump::POWER_MAP[1] : HeatPump::POWER_MAP[0];
