@@ -11,7 +11,8 @@
 #define RAND_MAX 600000
 
 MyMessage msgHVACStatus(CHILD_ID_HVAC, V_STATUS);
-MyMessage msgHVACFlowState(CHILD_ID_HVAC, V_HVAC_FLOW_STATE);
+MyMessage msgHVACFlowState(CHILD_ID_HVAC, V_VAR1);
+MyMessage msgHVACFlowStateInit(CHILD_ID_HVAC, V_HVAC_FLOW_STATE);
 MyMessage msgHVACSpeed(CHILD_ID_HVAC, V_VAR2);
 MyMessage msgHVACTemp(CHILD_ID_HVAC, V_TEMP);
 MyMessage msgHVACSetPointC(CHILD_ID_HVAC, V_HVAC_SETPOINT_COOL);
@@ -34,7 +35,7 @@ void setup() {
 }
 
 void presentation() {
-  sendSketchInfo("Mitsi", "3.41");
+  sendSketchInfo("Mitsi", "3.43");
   present(CHILD_ID_HVAC, S_HVAC, "Unit");
 }
 
@@ -52,6 +53,7 @@ void hpSendSettings(bool updateTime) {
     send(msgHVACTemp.set(hp.getRoomTemperature(), 1)); wait(SEND_DELAY);
   }
   send(msgMemory.set(freeMemory()));                   wait(SEND_DELAY);
+  send(msgHVACFlowStateInit.set(hp.getPowerSettingBool() ? "HeatOn" : "Off"));
 
   if (updateTime) {
     lastSend = millis();
@@ -89,7 +91,7 @@ void receive(const MyMessage &message) {
       newSettings.temperature = message.getFloat();
       break;
 
-    case V_HVAC_FLOW_STATE:
+    case V_VAR1:
       if (strcmp(message.getString(), HeatPump::POWER_MAP[0]) == 0) {
         newSettings.power = HeatPump::POWER_MAP[0];
       } 

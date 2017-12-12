@@ -7,37 +7,31 @@ import logging
 
 from homeassistant.components import mysensors
 from homeassistant.components.climate import (
-    STATE_COOL, STATE_HEAT, STATE_OFF, STATE_AUTO, ClimateDevice,
-    ATTR_TARGET_TEMP_HIGH, ATTR_TARGET_TEMP_LOW)
-from homeassistant.const import TEMP_CELSIUS, TEMP_FAHRENHEIT, ATTR_TEMPERATURE
+    ATTR_TARGET_TEMP_HIGH, ATTR_TARGET_TEMP_LOW, DOMAIN, STATE_AUTO,
+    STATE_COOL, STATE_HEAT, STATE_OFF, ClimateDevice,
+    SUPPORT_TARGET_TEMPERATURE, SUPPORT_TARGET_TEMPERATURE_HIGH,
+    SUPPORT_TARGET_TEMPERATURE_LOW, SUPPORT_FAN_MODE, SUPPORT_OPERATION_MODE,
+    SUPPORT_SWING_MODE)
+from homeassistant.const import ATTR_TEMPERATURE, TEMP_CELSIUS, TEMP_FAHRENHEIT
 
 _LOGGER = logging.getLogger(__name__)
 
+SUPPORT_FLAGS = (SUPPORT_TARGET_TEMPERATURE | SUPPORT_TARGET_TEMPERATURE_HIGH |
+                 SUPPORT_TARGET_TEMPERATURE_LOW | SUPPORT_FAN_MODE |
+                 SUPPORT_OPERATION_MODE | SUPPORT_SWING_MODE)
+
 def setup_platform(hass, config, add_devices, discovery_info=None):
     """Setup the mysensors climate."""
-    
-    if discovery_info is None:
-        return
- 
-    gateways = hass.data.get(mysensors.MYSENSORS_GATEWAYS)
-    if not gateways:
-        return
+    mysensors.setup_mysensors_platform(
+        hass, DOMAIN, discovery_info, MyMitsi, add_devices=add_devices)
 
-    for gateway in gateways:
-        if float(gateway.protocol_version) < 1.5:
-            continue
-        pres = gateway.const.Presentation
-        set_req = gateway.const.SetReq
-        map_sv_types = {
-            pres.S_HVAC: [set_req.V_HVAC_FLOW_STATE],
-        }
-        devices = {}
-        gateway.platform_callbacks.append(mysensors.pf_callback_factory(
-            map_sv_types, devices, MyMitsi, add_devices))
-
-
-class MyMitsi(mysensors.MySensorsDeviceEntity, ClimateDevice):
+class MyMitsi(mysensors.MySensorsEntity, ClimateDevice):
     """Representation of a MyMitsi hvac."""
+
+    @property
+    def supported_features(self):
+        """Return the list of supported features."""
+        return SUPPORT_FLAGS
 
     @property
     def assumed_state(self):
@@ -89,8 +83,8 @@ class MyMitsi(mysensors.MySensorsDeviceEntity, ClimateDevice):
     @property
     def current_operation(self):
         """Return current operation ie. heat, cool, idle."""
-        if self._values.get(self.gateway.const.SetReq.V_STATUS) == "1":
-            return self._values.get(self.gateway.const.SetReq.V_HVAC_FLOW_STATE)
+        if self._values.get(self.gateway.const.SetReq.V_STATUS) == "on":
+            return self._values.get(self.gateway.const.SetReq.V_VAR1)
         return "OFF"
 
     @property
@@ -163,13 +157,13 @@ class MyMitsi(mysensors.MySensorsDeviceEntity, ClimateDevice):
         """Set new operation mode."""
         set_req = self.gateway.const.SetReq
         self.gateway.set_child_value(self.node_id, self.child_id,
-                                     set_req.V_HVAC_FLOW_STATE,
+                                     set_req.V_VAR1,
                                      operation_mode)
 
         if self.gateway.optimistic:
             # optimistically assume that switch has changed state
-            self._values[set_req.V_STATUS] = "1" if operation_mode != "OFF" else "0"
-            self._values[set_req.V_HVAC_FLOW_STATE] = operation_mode            
+            self._values[set_req.V_STATUS] = "on" if operation_mode != "OFF" else "off"
+            self._values[set_req.V_VAR1] = operation_mode            
             self.schedule_update_ha_state()
 
     def set_swing_mode(self, swing_mode):
@@ -184,12 +178,7 @@ class MyMitsi(mysensors.MySensorsDeviceEntity, ClimateDevice):
 
     def update(self):
         """Update the controller with the latest value from a sensor."""
-        set_req = self.gateway.const.SetReq
-        node = self.gateway.sensors[self.node_id]
-        child = node.children[self.child_id]
-        for value_type, value in child.values.items():
-            _LOGGER.debug('%s: value_type %s, value = %s', self._name, value_type, value)
-            self._values[value_type] = value
+        super().update()
 
     def set_humidity(self, humidity):
         """Set new target humidity."""
