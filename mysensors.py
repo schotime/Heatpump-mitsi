@@ -71,14 +71,16 @@ class MyMitsi(mysensors.MySensorsEntity, ClimateDevice):
         """Return the highbound target temperature we try to reach."""
         set_req = self.gateway.const.SetReq
         if set_req.V_HVAC_SETPOINT_HEAT in self._values:
-            return float(self._values.get(set_req.V_HVAC_SETPOINT_COOL))
+            temp = self._values.get(set_req.V_HVAC_SETPOINT_COOL)
+            return float(temp) if temp is not None else None
 
     @property
     def target_temperature_low(self):
         """Return the lowbound target temperature we try to reach."""
         set_req = self.gateway.const.SetReq
         if set_req.V_HVAC_SETPOINT_COOL in self._values:
-            return float(self._values.get(set_req.V_HVAC_SETPOINT_HEAT))
+            temp = self._values.get(set_req.V_HVAC_SETPOINT_HEAT)
+            return float(temp) if temp is not None else None
 
     @property
     def current_operation(self):
