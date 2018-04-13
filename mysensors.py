@@ -9,21 +9,19 @@ from homeassistant.components import mysensors
 from homeassistant.components.climate import (
     ATTR_TARGET_TEMP_HIGH, ATTR_TARGET_TEMP_LOW, DOMAIN, STATE_AUTO,
     STATE_COOL, STATE_HEAT, STATE_OFF, ClimateDevice,
-    SUPPORT_TARGET_TEMPERATURE, SUPPORT_TARGET_TEMPERATURE_HIGH,
-    SUPPORT_TARGET_TEMPERATURE_LOW, SUPPORT_FAN_MODE, SUPPORT_OPERATION_MODE,
+    SUPPORT_TARGET_TEMPERATURE, SUPPORT_FAN_MODE, SUPPORT_OPERATION_MODE,
     SUPPORT_SWING_MODE)
 from homeassistant.const import ATTR_TEMPERATURE, TEMP_CELSIUS, TEMP_FAHRENHEIT
 
 _LOGGER = logging.getLogger(__name__)
 
-SUPPORT_FLAGS = (SUPPORT_TARGET_TEMPERATURE | SUPPORT_TARGET_TEMPERATURE_HIGH |
-                 SUPPORT_TARGET_TEMPERATURE_LOW | SUPPORT_FAN_MODE |
+SUPPORT_FLAGS = (SUPPORT_TARGET_TEMPERATURE | SUPPORT_FAN_MODE |
                  SUPPORT_OPERATION_MODE | SUPPORT_SWING_MODE)
 
-def setup_platform(hass, config, add_devices, discovery_info=None):
+async def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
     """Setup the mysensors climate."""
     mysensors.setup_mysensors_platform(
-        hass, DOMAIN, discovery_info, MyMitsi, add_devices=add_devices)
+        hass, DOMAIN, discovery_info, MyMitsi, async_add_devices=async_add_devices)
 
 class MyMitsi(mysensors.MySensorsEntity, ClimateDevice):
     """Representation of a MyMitsi hvac."""
@@ -145,14 +143,14 @@ class MyMitsi(mysensors.MySensorsEntity, ClimateDevice):
                 self._values[value_type] = value
                 self.schedule_update_ha_state()
 
-    def set_fan_mode(self, fan):
+    def set_fan_mode(self, fan_mode):
         """Set new target temperature."""
         set_req = self.gateway.const.SetReq
         self.gateway.set_child_value(self.node_id, self.child_id,
-                                     set_req.V_VAR2, fan)
+                                     set_req.V_VAR2, fan_mode)
         if self.gateway.optimistic:
             # optimistically assume that switch has changed state
-            self._values[set_req.V_VAR2] = fan
+            self._values[set_req.V_VAR2] = fan_mode
             self.schedule_update_ha_state()
 
     def set_operation_mode(self, operation_mode):
@@ -178,9 +176,9 @@ class MyMitsi(mysensors.MySensorsEntity, ClimateDevice):
             self._values[set_req.V_VAR3] = swing_mode
             self.schedule_update_ha_state()
 
-    def update(self):
+    async def async_update(self):
         """Update the controller with the latest value from a sensor."""
-        super().update()
+        await super().async_update()
 
     def set_humidity(self, humidity):
         """Set new target humidity."""
