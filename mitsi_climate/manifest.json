@@ -1,0 +1,8 @@
+{
+  "domain": "mitsi_climate",
+  "name": "Mitsi Climate",
+  "documentation": "https://github.com/home-assistant/",
+  "dependencies": [],
+  "codeowners": [],
+  "requirements": []
+}
