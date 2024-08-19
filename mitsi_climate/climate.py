@@ -22,13 +22,14 @@ from homeassistant.components.climate.const import (
     SUPPORT_TARGET_TEMPERATURE_RANGE,
 )
 
-from homeassistant.components.mysensors import on_unload
+from homeassistant.components.mysensors.helpers import on_unload
 from homeassistant.components.mysensors.const import MYSENSORS_DISCOVERY
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import ATTR_TEMPERATURE, TEMP_CELSIUS, TEMP_FAHRENHEIT
+from homeassistant.const import ATTR_TEMPERATURE, Platform, UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.util.unit_system import METRIC_SYSTEM
 
 DICT_HA_TO_MYS = {
     HVAC_MODE_OFF: 'OFF',
@@ -63,23 +64,23 @@ async def async_setup_entry(
         """Discover and add a MySensors climate."""
         mysensors.setup_mysensors_platform(
             hass,
-            "climate",
+            Platform.CLIMATE,
             discovery_info,
             MySensorsHVAC,
             async_add_entities=async_add_entities,
         )
 
-    await on_unload(
+    on_unload(
         hass,
         config_entry.entry_id,
         async_dispatcher_connect(
             hass,
-            MYSENSORS_DISCOVERY.format(config_entry.entry_id, "climate"),
+            MYSENSORS_DISCOVERY.format(config_entry.entry_id, Platform.CLIMATE),
             async_discover,
         ),
     )
 
-class MySensorsHVAC(mysensors.device.MySensorsEntity, ClimateEntity):
+class MySensorsHVAC(mysensors.device.MySensorsChildEntity, ClimateEntity):
     """Representation of a MySensors HVAC."""
 
     @property
@@ -106,7 +107,7 @@ class MySensorsHVAC(mysensors.device.MySensorsEntity, ClimateEntity):
     @property
     def temperature_unit(self) -> int:
         """Return the unit of measurement."""
-        return TEMP_CELSIUS if self.hass.config.units.is_metric else TEMP_FAHRENHEIT
+        return UnitOfTemperature.CELSIUS if self.hass.config.units is METRIC_SYSTEM else UnitOfTemperature.FAHRENHEIT
 
     @property
     def current_temperature(self) -> float | None:
