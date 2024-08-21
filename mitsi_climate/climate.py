@@ -4,54 +4,44 @@ from __future__ import annotations
 from typing import Any
 
 from homeassistant.components import mysensors
-from homeassistant.components.climate import ClimateEntity
-from homeassistant.components.climate.const import (
+from homeassistant.components.climate import (
     ATTR_TARGET_TEMP_HIGH,
     ATTR_TARGET_TEMP_LOW,
-    DOMAIN,
-    HVAC_MODE_AUTO,
-    HVAC_MODE_COOL,
-    HVAC_MODE_HEAT,
-    HVAC_MODE_OFF,    
-    HVAC_MODE_AUTO,
-    HVAC_MODE_DRY,
-    HVAC_MODE_FAN_ONLY,
-    SUPPORT_FAN_MODE,
-    SUPPORT_SWING_MODE,
-    SUPPORT_TARGET_TEMPERATURE,
-    SUPPORT_TARGET_TEMPERATURE_RANGE,
+    ClimateEntity,
+    ClimateEntityFeature,
+    HVACMode
 )
 
 from homeassistant.components.mysensors.helpers import on_unload
 from homeassistant.components.mysensors.const import MYSENSORS_DISCOVERY
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_TEMPERATURE, Platform, UnitOfTemperature
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util.unit_system import METRIC_SYSTEM
 
 DICT_HA_TO_MYS = {
-    HVAC_MODE_OFF: 'OFF',
-    HVAC_MODE_HEAT: 'HEAT',
-    HVAC_MODE_COOL: 'COOL',
-    HVAC_MODE_AUTO: 'AUTO',
-    HVAC_MODE_DRY: 'DRY',
-    HVAC_MODE_FAN_ONLY: 'FAN'
+    HVACMode.OFF: 'OFF',
+    HVACMode.HEAT: 'HEAT',
+    HVACMode.COOL: 'COOL',
+    HVACMode.AUTO: 'AUTO',
+    HVACMode.FAN_ONLY: 'FAN'
 }
 DICT_MYS_TO_HA = {
-    'OFF': HVAC_MODE_OFF,
-    'Off': HVAC_MODE_OFF,
-    'HEAT': HVAC_MODE_HEAT,
-    'HeatOn': HVAC_MODE_HEAT,
-    'COOL': HVAC_MODE_COOL,
-    'AUTO': HVAC_MODE_AUTO,
-    'DRY': HVAC_MODE_DRY,
-    'FAN': HVAC_MODE_FAN_ONLY
+    'OFF': HVACMode.OFF,
+    'Off': HVACMode.OFF,
+    'HEAT': HVACMode.HEAT,
+    'HeatOn': HVACMode.HEAT,
+    'COOL': HVACMode.COOL,
+    'CoolOn': HVACMode.COOL,
+    'AUTO': HVACMode.AUTO,
+    'AutoChangeOver': HVACMode.AUTO,
+    'FAN': HVACMode.FAN_ONLY
 }
 
 FAN_LIST = ["AUTO", "QUIET", "1", "2", "3", "4"]
-OPERATION_LIST = [HVAC_MODE_OFF, HVAC_MODE_COOL, HVAC_MODE_HEAT, HVAC_MODE_AUTO, HVAC_MODE_FAN_ONLY]
+OPERATION_LIST = [HVACMode.OFF, HVACMode.HEAT, HVACMode.COOL, HVACMode.AUTO, HVACMode.FAN_ONLY]
 
 async def async_setup_entry(
     hass: HomeAssistant, 
@@ -83,21 +73,24 @@ async def async_setup_entry(
 class MySensorsHVAC(mysensors.device.MySensorsChildEntity, ClimateEntity):
     """Representation of a MySensors HVAC."""
 
+    _attr_hvac_modes = OPERATION_LIST
+    _enable_turn_on_off_backwards_compatibility = False
+
     @property
-    def supported_features(self) -> int:
+    def supported_features(self) -> ClimateEntityFeature:
         """Return the list of supported features."""
-        features = 0
+        features = ClimateEntityFeature.TURN_OFF | ClimateEntityFeature.TURN_ON | ClimateEntityFeature.SWING_MODE
         set_req = self.gateway.const.SetReq
         if set_req.V_VAR2 in self._values:
-            features = features | SUPPORT_FAN_MODE
+            features = features | ClimateEntityFeature.FAN_MODE
         if (
             set_req.V_HVAC_SETPOINT_COOL in self._values
             and set_req.V_HVAC_SETPOINT_HEAT in self._values
         ):
-            features = features | SUPPORT_TARGET_TEMPERATURE_RANGE
+            features = features | ClimateEntityFeature.TARGET_TEMPERATURE_RANGE
         else:
-            features = features | SUPPORT_TARGET_TEMPERATURE
-        return features | SUPPORT_SWING_MODE
+            features = features | ClimateEntityFeature.TARGET_TEMPERATURE
+        return features
 
     @property
     def assumed_state(self):
@@ -255,7 +248,8 @@ class MySensorsHVAC(mysensors.device.MySensorsChildEntity, ClimateEntity):
             self._values[set_req.V_VAR1] = DICT_HA_TO_MYS[hvac_mode]
             self.async_write_ha_state()
 
-    async def async_update(self) -> None:
+    @callback
+    def async_update(self) -> None:
         """Update the controller with the latest value from a sensor."""
-        await super().async_update()
+        super().async_update()
         self._values[self.value_type] = DICT_MYS_TO_HA[self._values[self.value_type]]
